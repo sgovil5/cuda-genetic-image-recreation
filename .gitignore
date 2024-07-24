@@ -1,0 +1,5 @@
+/stb/
+*.exe
+*.o
+*.exp
+*.lib
