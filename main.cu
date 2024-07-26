@@ -1,5 +1,8 @@
 #include "main.cuh"
 #include "random_utils.cuh"
+#include "visualize.cuh"
+
+
 
 __global__ void generate_image_kernel(Image* population, int width, int height, Color avg_color, curandState* states){
     int idx = blockIdx.x*blockDim.x + threadIdx.x;
@@ -19,12 +22,6 @@ __global__ void generate_image_kernel(Image* population, int width, int height, 
     // Generate polygons
     int num_polygons = device_num_polygons_dis(&local_state);
     img.num_polygons = num_polygons;
-    img.polygons = (Polygon*)malloc(num_polygons*sizeof(Polygon));
-
-    if (img.polygons == nullptr) {
-        printf("Error: Could not allocate memory for polygons.\n");
-        return;
-    }
 
     for(int i=0; i<num_polygons; i++){
         Polygon& polygon = img.polygons[i];
@@ -32,14 +29,6 @@ __global__ void generate_image_kernel(Image* population, int width, int height, 
 
         int num_points = device_num_points_dis(&local_state);
         polygon.num_points = num_points;
-
-        polygon.points = (Point*)malloc(num_points*sizeof(Point));
-        polygon.lines = (Line*)malloc(num_points*sizeof(Line));
-
-        if(polygon.points == nullptr || polygon.lines == nullptr){
-            printf("Error: Could not allocate memory for polygon points or lines.\n");
-            return;
-        }
 
         for(int j=0; j<num_points; j++){
             polygon.points[j] = {curand(&local_state)%width, curand(&local_state)%height};
@@ -50,18 +39,6 @@ __global__ void generate_image_kernel(Image* population, int width, int height, 
         }
     }
     population[idx] = img;
-}
-
-// TODO: CHECK ORDER OF FREEING
-__global__ void free_image_memory(Image* population, int population_size){
-    int idx = blockIdx.x*blockDim.x + threadIdx.x;
-    if(idx<population_size){
-        for(int i=0; i<population[idx].num_polygons; i++){
-            free(population[idx].polygons[i].points);
-            free(population[idx].polygons[i].lines);
-        }
-        free(population[idx].polygons);
-    }
 }
 
 __global__ void avg_color_kernel(const uchar3* image, int width, int height, Color* result){
@@ -148,7 +125,7 @@ thrust::host_vector<Image> init_population(int population_size, int width, int h
     cudaMalloc(&d_population, population_size*sizeof(Image));
     cudaMalloc(&d_states, population_size*sizeof(curandState));
 
-    int block_size = 256;
+    int block_size = min(256, population_size);
     int grid_size = (population_size+block_size-1)/block_size;
 
     init_curand_states<<<grid_size, block_size>>>(d_states, unsigned(time(NULL)));
@@ -162,17 +139,18 @@ thrust::host_vector<Image> init_population(int population_size, int width, int h
         throw std::runtime_error("Kernel launch failed");
     }
 
-    // copy results back to host (thrust is fast)
-    thrust::device_vector<Image> d_vec(d_population, d_population + population_size);
-    thrust::host_vector<Image> h_vec = d_vec;
+    cudaDeviceSynchronize();
 
-    free_image_memory<<<grid_size, block_size>>>(d_population, population_size);
+    thrust::device_ptr<Image> d_ptr(d_population);
+    thrust::host_vector<Image> d_vec(d_ptr, d_ptr + population_size);
+    thrust::host_vector<Image> h_vec = d_vec;
 
     cudaFree(d_population);
     cudaFree(d_states);
 
     return h_vec;
 }
+
 
 int main() {
     int width, height, channels;
@@ -184,13 +162,11 @@ int main() {
 
     Color avg_color = calculateAvgColor(image_data, width, height, channels);
 
-    int population_size = 5000;
+    int population_size = 5;
     thrust::host_vector<Image> population = init_population(population_size, width, height, avg_color);
     
-    
-    std::cout<<"complete"<<std::endl;
+    visualize_image(population[0], width, height, "output_image.png");
 
-
-
+    std::cout << "Visualization complete" << std::endl;
     return 0;
 }

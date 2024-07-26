@@ -1,6 +1,8 @@
 #ifndef MAIN_H
 #define MAIN_H
 
+#define _USE_MATH_DEFINES
+
 #include "../stb/stb_image.h"
 #include "../stb/stb_image_write.h"
 #include <iostream>

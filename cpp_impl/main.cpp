@@ -95,9 +95,11 @@ int main() {
     }
 
     Color averageColor = avg_color(image, width, height, 3);
+    
     stbi_image_free(image);
 
-    std::vector<Image> population = init_population(5000, width, height, averageColor);
-    
+    std::vector<Image> population = init_population(1, width, height, averageColor);
+    Image img = population[0];
+    visualize_image(img, width, height, "i1.png");
     return 0;
 }
