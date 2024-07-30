@@ -4,10 +4,10 @@
 #include <random>
 #include <algorithm>
 #include <cmath>
-#include <curand_kernel.h>
 #include <cuda_runtime.h>
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
+#include "stb/stb_image_write.h"
 
 #ifndef VISUALIZE_CUH
 #define VISUALIZE_CUH

@@ -1,15 +1,12 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-#include "stb/stb_image.h"
-#include "stb/stb_image_write.h"
-
 #define MAX_POINTS 15
 #define MAX_POLYGONS 150
+#define POPULATION_SIZE 5
 
 struct Color {
-    unsigned long long r, g, b;
-    unsigned long long a;
+    float r, g, b, a;
 };
 
 struct Point {

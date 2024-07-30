@@ -1,7 +1,5 @@
 #include "visualize.cuh"
 
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-
 // Atomic add for colors (make sure value doesn't go over 255)
 __device__ void atomicAddRGB(unsigned char* address, unsigned char val){
     int* intAddress = (int*)((void*) address);
@@ -39,19 +37,24 @@ __device__ void device_fill_scanline(unsigned char* buffer, int width, int heigh
     }
 }
 
-__device__ void device_draw_line(unsigned char* buffer, int width, int height, const Line& line, const Color& color){
+__device__ void device_draw_line(unsigned char* buffer, int width, int height, const Line& line, const Color& color) {
     int x0 = line.p1.x, y0 = line.p1.y;
     int x1 = line.p2.x, y1 = line.p2.y;
     int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
     int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
     int err = dx + dy, e2;
 
+    float alpha = color.a / 255.0f;
+    float invAlpha = 1.0f - alpha;
+
     while (true) {
         if (x0 >= 0 && x0 < width && y0 >= 0 && y0 < height) {
             int index = (y0 * width + x0) * 3;
-            buffer[index] = color.r;
-            buffer[index + 1] = color.g;
-            buffer[index + 2] = color.b;
+            
+            // Blend the line color with the existing color in the buffer
+            buffer[index] = (unsigned char)(alpha * color.r + invAlpha * buffer[index]);
+            buffer[index + 1] = (unsigned char)(alpha * color.g + invAlpha * buffer[index + 1]);
+            buffer[index + 2] = (unsigned char)(alpha * color.b + invAlpha * buffer[index + 2]);
         }
         if (x0 == x1 && y0 == y1) break;
         e2 = 2 * err;
