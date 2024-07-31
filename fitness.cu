@@ -37,11 +37,11 @@ __device__ bool isInsidePolygon(float x, float y, const Polygon* polygon) {
     return inside;
 }
 
-__global__ void fitness_kernel(const Image* population, const unsigned char* target_image, float* fitness_scores, int width, int height){
+__global__ void fitness_kernel(Image* population, const unsigned char* target_image, float* fitness_scores, int width, int height){
     int idx = blockIdx.x*blockDim.x+threadIdx.x;
     if(idx>=POPULATION_SIZE) return;
 
-    const Image& img = population[idx];
+    Image& img = population[idx];
     float local_delta_e = 0.0f;
     
     for(int y=0; y<height; ++y){
