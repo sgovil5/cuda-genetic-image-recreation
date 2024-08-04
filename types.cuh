@@ -1,11 +1,15 @@
-#ifndef TYPES_H
-#define TYPES_H
+#define POPULATION_SIZE 1000
+#define MAX_POINTS 8
+#define MAX_POLYGONS 8
+#define WIDTH 350
+#define HEIGHT 350
 
-#define MAX_POINTS 15
-#define MAX_POLYGONS 150
-
-#define POPULATION_SIZE 5
-#define TOURNAMENT_SIZE 2
+struct Image {
+    unsigned char* data;
+    int width;
+    int height;
+    int channels;
+};
 
 struct Color {
     float r, g, b, a;
@@ -26,18 +30,18 @@ struct Polygon {
     int num_points;
 };
 
-// exists only because of compilation time when passing Image to blendParents?!?!
-struct CrossoverImage {
-    Color background;
-    int num_polygons;
-    Polygon* polygons;
-};
-
-struct Image {
+struct InitialImage {
     Color background;
     Polygon polygons[MAX_POLYGONS];
     int num_polygons;
-    float fitness_score;
 };
 
-#endif // TYPES_H
+#define CUDA_CHECK(call) \
+    do { \
+        cudaError_t error = call; \
+        if (error != cudaSuccess) { \
+            fprintf(stderr, "CUDA error at %s:%d: %s\n", __FILE__, __LINE__, \
+                    cudaGetErrorString(error)); \
+            exit(EXIT_FAILURE); \
+        } \
+    } while(0)

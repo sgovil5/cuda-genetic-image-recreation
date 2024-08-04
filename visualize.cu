@@ -106,7 +106,7 @@ __global__ void draw_polygon_edges(unsigned char* buffer, int width, int height,
     }
 }
 
-void visualize_image(const Image& img, int width, int height, const char* filename) {
+unsigned char* visualize_image(InitialImage& img, int width, int height) {
     unsigned char* h_buffer = new unsigned char[width * height * 3];
     unsigned char* d_buffer;
     cudaMalloc(&d_buffer, width * height * 3 * sizeof(unsigned char));
@@ -161,9 +161,8 @@ void visualize_image(const Image& img, int width, int height, const char* filena
 
     cudaMemcpy(h_buffer, d_buffer, width * height * 3 * sizeof(unsigned char), cudaMemcpyDeviceToHost);
 
-    stbi_write_png(filename, width, height, 3, h_buffer, width * 3);
-
-    delete[] h_buffer;
     cudaFree(d_polygons);
     cudaFree(d_buffer);
+
+    return h_buffer;
 }

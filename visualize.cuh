@@ -22,6 +22,6 @@ __device__ bool isInside(float x, float y, const Polygon* polygon);
 __device__ void blendColor(unsigned char* dst, const Color& src);
 __global__ void fill_polygon_parallel(unsigned char* buffer, int width, int height, const Polygon* polygon);
 __global__ void draw_polygon_edges(unsigned char* buffer, int width, int height, const Polygon* polygon);
-void visualize_image(const Image& img, int width, int height, const char* filename);
+unsigned char* visualize_image(InitialImage& img, int width, int height);
 
 #endif 

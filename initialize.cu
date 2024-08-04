@@ -1,148 +1,107 @@
 #include "initialize.cuh"
 
-__global__ void generate_image_kernel(Image* population, int width, int height, Color avg_color, curandState* states){
+Color calculate_avg_color(Image image){
+    long long total_r = 0, total_g = 0, total_b = 0;
+    int total_pixels = image.width * image.height;
+
+    for (int i = 0; i < total_pixels * image.channels; i += image.channels) {
+        total_r += image.data[i];
+        total_g += image.data[i + 1];
+        total_b += image.data[i + 2];
+    }
+
+    return Color{
+        static_cast<float>(total_r / total_pixels),
+        static_cast<float>(total_g / total_pixels),
+        static_cast<float>(total_b / total_pixels),
+        255
+    };
+}
+
+__device__ Polygon create_polygon(curandState* state) {
+    Polygon polygon;
+    polygon.color = {
+        device_uniform_dis(state) * 255,
+        device_uniform_dis(state) * 255,
+        device_uniform_dis(state) * 255,
+        device_uniform_dis(state) * 255
+    };
+
+    int num_points = curand_uniform(state) * 3 + 3; // 3-6 points
+    polygon.num_points = num_points;
+
+    for (int i = 0; i < num_points; i++) {
+        polygon.points[i].x = device_uniform_dis(state) * (WIDTH - 1);
+        polygon.points[i].y = device_uniform_dis(state) * (HEIGHT - 1);
+    }
+
+    for(int i=0; i<num_points; i++){
+        polygon.lines[i].p1 = polygon.points[i];
+        polygon.lines[i].p2 = polygon.points[(i+1)%num_points];
+    }
+
+    return polygon;
+}
+
+__global__ void generate_image_kernel(InitialImage* population, Color avg_color, curandState* states, unsigned char* image_buffers){
     int idx = blockIdx.x*blockDim.x + threadIdx.x;
+    if(idx >= POPULATION_SIZE) return;
     curandState local_state = states[idx];
 
-    Image img;
+    InitialImage img;
 
-    // Set background
     float background_prob = device_uniform_dis(&local_state);
     if (background_prob < 0.4f) img.background = avg_color;
     else if (background_prob < 0.6f) img.background = {0, 0, 0, 255};
     else if (background_prob < 0.8f) img.background = {255, 255, 255, 255};
-    else {
-        img.background = {device_color_dis(&local_state), device_color_dis(&local_state), device_color_dis(&local_state), 255};
+    else{
+        img.background = {
+            device_uniform_dis(&local_state)*255,
+            device_uniform_dis(&local_state)*255,
+            device_uniform_dis(&local_state)*255,
+            255
+        };
     }
 
-    // Generate polygons
-    int num_polygons = device_num_polygons_dis(&local_state);
-    img.num_polygons = num_polygons;
-
-    for(int i=0; i<num_polygons; i++){
-        Polygon& polygon = img.polygons[i];
-        polygon.color = {device_color_dis(&local_state), device_color_dis(&local_state), device_color_dis(&local_state), device_color_dis(&local_state)};
-
-        int num_points = device_num_points_dis(&local_state);
-        polygon.num_points = num_points;
-
-        for(int j=0; j<num_points; j++){
-            polygon.points[j] = {curand(&local_state)%width, curand(&local_state)%height};
-        }
-
-        for(int j=0; j<num_points; j++){
-            polygon.lines[j] = {polygon.points[j], polygon.points[(j+1)%num_points]};
-        }
+    img.num_polygons = curand_uniform(&local_state) * 3 + 3; // 3-6 polygons
+    
+    for(int i=0; i<img.num_polygons; i++){
+        img.polygons[i] = create_polygon(&local_state);
     }
+
     population[idx] = img;
 }
 
-__global__ void avg_color_kernel(const uchar3* image, int width, int height, Color* result){
-    extern __shared__ Color shared_sum[];
-    
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    int idy = blockIdx.y * blockDim.y + threadIdx.y;
-    int threadId = threadIdx.y * blockDim.x + threadIdx.x;
+thrust::host_vector<InitialImage> init_population(Image original_image){
+    // Calculate average image color
+    Color avg_color = calculate_avg_color(original_image);
 
-    Color localColor = {0, 0, 0, 0};
-
-    if(idx < width && idy < height){
-        uchar3 pixel = image[idy*width + idx];
-        localColor = {(float) pixel.x, (float) pixel.y, (float) pixel.z, 255};
-    }
-
-    shared_sum[threadId] = localColor;
-    __syncthreads();
-
-    // Reduction pattern
-    for(int s = blockDim.x * blockDim.y / 2; s > 0; s >>= 1){
-        if(threadId < s){
-            shared_sum[threadId].r += shared_sum[threadId + s].r;
-            shared_sum[threadId].g += shared_sum[threadId + s].g;
-            shared_sum[threadId].b += shared_sum[threadId + s].b;
-        }
-        __syncthreads();
-    }
-
-    if(threadId == 0){
-        atomicAdd(&result->r, shared_sum[0].r);
-        atomicAdd(&result->g, shared_sum[0].g);
-        atomicAdd(&result->b, shared_sum[0].b);
-        result->a = 255;
-    }
-}
-
-Color calculateAvgColor(const unsigned char* image_data, int width, int height, int channels){
-    // Device memory
-    uchar3* d_image;
-    Color* d_result;
-    cudaMalloc(&d_image, width*height*sizeof(uchar3));
-    cudaMalloc(&d_result, sizeof(Color));
-    
-    // Put image in device
-    cudaMemcpy(d_image, image_data, width*height*sizeof(uchar3), cudaMemcpyHostToDevice);
-    
-    // Initialize result in device
-    Color h_result = {0, 0, 0, 0};
-    cudaMemcpy(d_result, &h_result, sizeof(Color), cudaMemcpyHostToDevice);
-
-    //Setup grids and blocks
-    dim3 block(16, 16);
-    dim3 grid((width + block.x-1)/block.x, (height + block.y-1)/block.y);
-
-    int sharedMemSize = block.x*block.y*sizeof(Color);
-
-    avg_color_kernel<<<grid, block, sharedMemSize>>>(d_image, width, height, d_result);
-
-    // Check for kernel launch errors
-    cudaError_t cudaStatus = cudaGetLastError();
-    if (cudaStatus != cudaSuccess) {
-        std::cerr << "Kernel launch failed: " << cudaGetErrorString(cudaStatus) << std::endl;
-        throw std::runtime_error("Kernel launch failed");
-    }
-
-    cudaMemcpy(&h_result, d_result, sizeof(Color), cudaMemcpyDeviceToHost);
-
-    cudaFree(d_image);
-    cudaFree(d_result);
-
-    int total_pixels = width * height;
-    h_result.r /= total_pixels;
-    h_result.g /= total_pixels;
-    h_result.b /= total_pixels;
-
-    return h_result;
-}
-
-thrust::host_vector<Image> init_population(int population_size, int width, int height, Color avg_color){
-    Image* d_population;
+    InitialImage* d_population;
     curandState* d_states;
+    unsigned char* d_image_buffers;
+    
 
-    cudaMalloc(&d_population, population_size*sizeof(Image));
-    cudaMalloc(&d_states, population_size*sizeof(curandState));
+    cudaMalloc(&d_population, POPULATION_SIZE*sizeof(InitialImage));
+    cudaMalloc(&d_states, POPULATION_SIZE*sizeof(curandState));
+    cudaMalloc(&d_image_buffers, POPULATION_SIZE*WIDTH*HEIGHT*3*sizeof(unsigned char));
 
-    int block_size = min(256, population_size);
-    int grid_size = (population_size+block_size-1)/block_size;
+    CUDA_CHECK(cudaMalloc(&d_population, POPULATION_SIZE*sizeof(InitialImage)));
+    CUDA_CHECK(cudaMalloc(&d_states, POPULATION_SIZE*sizeof(curandState)));
+    CUDA_CHECK(cudaMalloc(&d_image_buffers, POPULATION_SIZE*WIDTH*HEIGHT*3*sizeof(unsigned char)));
+
+    int block_size = 256;
+    int grid_size = (POPULATION_SIZE + block_size - 1) / block_size;
 
     init_curand_states<<<grid_size, block_size>>>(d_states, unsigned(time(NULL)));
 
-    generate_image_kernel<<<grid_size, block_size>>>(d_population, width, height, avg_color, d_states);
+    generate_image_kernel<<<grid_size, block_size>>>(d_population, avg_color, d_states, d_image_buffers);
 
-    // Check for kernel errors
-    cudaError_t cudaStatus = cudaGetLastError();
-    if(cudaStatus != cudaSuccess){
-        std::cerr<<"Kernel launched failed: "<<cudaGetErrorString(cudaStatus)<<std::endl;
-        throw std::runtime_error("Kernel launch failed");
-    }
-
-    cudaDeviceSynchronize();
-
-    thrust::device_ptr<Image> d_ptr(d_population);
-    thrust::host_vector<Image> d_vec(d_ptr, d_ptr + population_size);
-    thrust::host_vector<Image> h_vec = d_vec;
+    thrust::host_vector<InitialImage> population(POPULATION_SIZE);
+    cudaMemcpy(population.data(), d_population, POPULATION_SIZE*sizeof(InitialImage), cudaMemcpyDeviceToHost);
 
     cudaFree(d_population);
     cudaFree(d_states);
+    cudaFree(d_image_buffers);
 
-    return h_vec;
+    return population;
 }

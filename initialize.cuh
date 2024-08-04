@@ -14,9 +14,10 @@
 #include "types.cuh"
 #include "random_utils.cuh"
 
-__global__ void generate_image_kernel(Image* population, int width, int height, Color avg_color, curandState* states);
-__global__ void avg_color_kernel(const uchar3* image, int width, int height, Color* result);
-Color calculateAvgColor(const unsigned char* image_data, int width, int height, int channels);
-thrust::host_vector<Image> init_population(int population_size, int width, int height, Color avg_color);
+Color calculate_avg_color(Image image);
+__device__ Polygon create_polygon(curandState* state);
+__global__ void generate_image_kernel(InitialImage* population, Color avg_color, curandState* states, unsigned char* image_buffers);
+thrust::host_vector<InitialImage> init_population(Image original_image);
+
 
 #endif
