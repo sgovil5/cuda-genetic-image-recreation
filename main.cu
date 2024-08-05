@@ -1,6 +1,3 @@
-#include "visualize.cuh"
-#include "random_utils.cuh"
-#include "initialize.cuh"
 #include "main.cuh"
 
 #define STB_IMAGE_IMPLEMENTATION
@@ -10,6 +7,7 @@
 #include "stb/stb_image_write.h"
 
 int main(){
+    cudaSetDevice(0);
     int width=WIDTH, height=HEIGHT, channels;
     
     unsigned char* image_data = stbi_load("image.png", &width, &height, &channels, 3);
@@ -31,13 +29,14 @@ int main(){
 
     thrust::host_vector<InitialImage> population = init_population(original_image);
 
-    thrust::host_vector<unsigned char*> image_buffers;
+    thrust::host_vector<Image> image_buffers;
     for(int i=0; i<POPULATION_SIZE; i++){
         InitialImage curr_img = population[i];
         unsigned char* image_buffer = visualize_image(curr_img, WIDTH, HEIGHT);
-        image_buffers.push_back(image_buffer);
+        image_buffers.push_back({image_buffer, WIDTH, HEIGHT, channels});
     }
 
+    thrust::host_vector<float> fitness_scores = calculate_fitness(image_buffers, original_image);
     // Stop timing
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);

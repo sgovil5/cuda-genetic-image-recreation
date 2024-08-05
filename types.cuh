@@ -1,4 +1,7 @@
-#define POPULATION_SIZE 1000
+#ifndef TYPES_CUH
+#define TYPES_CUH
+
+#define POPULATION_SIZE 250
 #define MAX_POINTS 8
 #define MAX_POLYGONS 8
 #define WIDTH 350
@@ -45,3 +48,5 @@ struct InitialImage {
             exit(EXIT_FAILURE); \
         } \
     } while(0)
+
+#endif // TYPES_CUH

@@ -8,5 +8,9 @@
 #include <thrust/host_vector.h>
 #include <thrust/device_vector.h>
 
-// #include "types.cuh"
-
+#include "types.cuh"
+#include "visualize.cuh"
+#include "random_utils.cuh"
+#include "initialize.cuh"
+#include "ColorUtils.cuh"
+#include "fitness.cuh"
