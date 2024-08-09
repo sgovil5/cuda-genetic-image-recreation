@@ -12,6 +12,6 @@ __device__ float getColorDeltaE(ColorUtils::rgbColor c1, ColorUtils::rgbColor c2
 
 __global__ void calculate_fitness_kernel(Image* population, Image* original_image, float* fitness_scores);
 
-thrust::host_vector<float> calculate_fitness(thrust::host_vector<Image>& population, Image& original_image);
+thrust::host_vector<float> calculate_fitness(thrust::host_vector<Image> population, Image original_image);
 
 #endif // FITNESS_CUH

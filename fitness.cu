@@ -95,7 +95,7 @@ __global__ void calculate_fitness_kernel(Image* population, Image* original_imag
     atomicAdd(&fitness_scores[img_idx], deltaE);
 }
 
-thrust::host_vector<float> calculate_fitness(thrust::host_vector<Image>& population, Image& original_image) {
+thrust::host_vector<float> calculate_fitness(thrust::host_vector<Image> population, Image original_image) {
     Image* d_population;
     Image* d_original_image;
     float* d_fitness_scores;
@@ -103,6 +103,8 @@ thrust::host_vector<float> calculate_fitness(thrust::host_vector<Image>& populat
     cudaMalloc(&d_population, sizeof(Image) * POPULATION_SIZE);
     cudaMalloc(&d_original_image, sizeof(Image));
     cudaMalloc(&d_fitness_scores, sizeof(float) * POPULATION_SIZE);
+
+    cudaMemset(d_fitness_scores, 0, sizeof(float) * POPULATION_SIZE);
 
     // Allocate and copy image data to create a deep copy for GPU usage
     for (int i = 0; i < POPULATION_SIZE; i++) {
