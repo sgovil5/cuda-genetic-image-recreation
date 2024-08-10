@@ -5,6 +5,7 @@
 #include <curand_kernel.h>
 #include <thrust/host_vector.h>
 #include "types.cuh"
+#include "random_utils.cuh"
 
 __global__ void combined_crossover_kernel(Image* population, int* selected_indices, Image* new_population, curandState* states);
 

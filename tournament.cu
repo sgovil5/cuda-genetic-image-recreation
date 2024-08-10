@@ -11,24 +11,38 @@ __global__ void combined_crossover_kernel(Image* population, int* selected_indic
 
     if (parent1_idx < 0 || parent1_idx >= POPULATION_SIZE || parent2_idx < 0 || parent2_idx >= POPULATION_SIZE) return;
 
-    curandState local_state = states[image_idx];
-    bool do_vertical = curand(&local_state) % 2 == 0;
-
-    int split_point = do_vertical ? WIDTH / 2 : HEIGHT / 2;
-
     int pixel_idx = (y * WIDTH + x) * 3;
     if (pixel_idx + 2 >= WIDTH * HEIGHT * 3) return; 
 
-    Image* src_image;
-    if (do_vertical) {
-        src_image = (x < split_point) ? &population[parent1_idx] : &population[parent2_idx];
-    } else {
-        src_image = (y < split_point) ? &population[parent1_idx] : &population[parent2_idx];
+
+    curandState local_state = states[image_idx];
+    float random_value = curand_uniform(&local_state);
+
+    // Blend colors
+    if (random_value < 0.5f) {
+        Image* parent1 = &population[parent1_idx];
+        Image* parent2 = &population[parent2_idx];
+        
+        new_population[image_idx].data[pixel_idx] = (parent1->data[pixel_idx] + parent2->data[pixel_idx]) / 2;
+        new_population[image_idx].data[pixel_idx + 1] = (parent1->data[pixel_idx + 1] + parent2->data[pixel_idx + 1]) / 2;
+        new_population[image_idx].data[pixel_idx + 2] = (parent1->data[pixel_idx + 2] + parent2->data[pixel_idx + 2]) / 2;
     }
-    
-    new_population[image_idx].data[pixel_idx] = src_image->data[pixel_idx];
-    new_population[image_idx].data[pixel_idx + 1] = src_image->data[pixel_idx + 1];
-    new_population[image_idx].data[pixel_idx + 2] = src_image->data[pixel_idx + 2];
+    // Vertical/horizontal crossover
+    else {
+        bool do_vertical = random_value < 0.75f;
+        int split_point = do_vertical ? WIDTH / 2 : HEIGHT / 2;
+
+        Image* src_image;
+        if (do_vertical) {
+            src_image = (x < split_point) ? &population[parent1_idx] : &population[parent2_idx];
+        } else {
+            src_image = (y < split_point) ? &population[parent1_idx] : &population[parent2_idx];
+        }
+        
+        new_population[image_idx].data[pixel_idx] = src_image->data[pixel_idx];
+        new_population[image_idx].data[pixel_idx + 1] = src_image->data[pixel_idx + 1];
+        new_population[image_idx].data[pixel_idx + 2] = src_image->data[pixel_idx + 2];
+    }
 }
 
 __global__ void tournament_selection_kernel(Image* population, float* fitness_scores, int* selected_indices, curandState* states){
@@ -42,10 +56,6 @@ __global__ void tournament_selection_kernel(Image* population, float* fitness_sc
     for(int i=0; i<TOURNAMENT_SIZE; i++){
         int candidate = curand(&local_state) % POPULATION_SIZE;
 
-        // hack to avoid selecting 0'th image because for some reason there's memory corruption
-        while(candidate==0){
-            candidate = curand(&local_state) % POPULATION_SIZE;
-        }
         if(fitness_scores[candidate] > best_fitness){
             best_fitness = fitness_scores[candidate];
             best_idx = candidate;
@@ -95,7 +105,7 @@ thrust::host_vector<Image> tournament_selection(thrust::host_vector<Image> popul
     // Init curand states (have to do it again because we're computing 2*POPULATION_SIZE)
     int block_size = 256;
     int grid_size = (2 * POPULATION_SIZE + block_size - 1) / block_size;
-    init_curand_states<<<grid_size, block_size>>>(d_states, unsigned(time(NULL)));
+    init_curand_states<<<grid_size, block_size>>>(d_states, unsigned(time(NULL)), 2 * POPULATION_SIZE);
 
     cudaDeviceSynchronize();
 

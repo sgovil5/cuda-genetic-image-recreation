@@ -6,6 +6,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb/stb_image_write.h"
 
+
+
 int main(){
     cudaSetDevice(0);
     int width=WIDTH, height=HEIGHT, channels;
@@ -40,10 +42,15 @@ int main(){
     thrust::host_vector<float> fitness_scores = calculate_fitness(image_buffers, original_image);
 
     thrust::host_vector<Image> new_population = tournament_selection(image_buffers, fitness_scores);
+
+    introduce_mutation(new_population);
+
     for(int i = 0; i < min(POPULATION_SIZE, 10); i++) {
         stbi_write_png(("new_output_image_" + std::to_string(i) + ".png").c_str(), 
                        WIDTH, HEIGHT, channels, new_population[i].data, WIDTH * channels);
     }
+
+
     // Stop timing
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);

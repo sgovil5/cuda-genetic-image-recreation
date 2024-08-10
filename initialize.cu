@@ -92,7 +92,7 @@ thrust::host_vector<InitialImage> init_population(Image original_image){
     int block_size = 256;
     int grid_size = (POPULATION_SIZE + block_size - 1) / block_size;
 
-    init_curand_states<<<grid_size, block_size>>>(d_states, unsigned(time(NULL)));
+    init_curand_states<<<grid_size, block_size>>>(d_states, unsigned(time(NULL)), POPULATION_SIZE);
 
     generate_image_kernel<<<grid_size, block_size>>>(d_population, avg_color, d_states, d_image_buffers);
 

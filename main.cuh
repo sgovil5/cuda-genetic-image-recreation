@@ -15,4 +15,6 @@
 #include "ColorUtils.cuh"
 #include "fitness.cuh"
 #include "tournament.cuh"
+#include "mutation.cuh"
+
 

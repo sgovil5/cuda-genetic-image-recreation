@@ -1,11 +1,12 @@
 #ifndef TYPES_CUH
 #define TYPES_CUH
 
-#define POPULATION_SIZE 1000
+#define POPULATION_SIZE 10
 #define WIDTH 100
 #define HEIGHT 100
 
-#define TOURNAMENT_SIZE 80
+#define TOURNAMENT_SIZE 4
+#define MUTATION_RATE 1
 
 #define MAX_POINTS 8
 #define MAX_POLYGONS 8
