@@ -14,3 +14,5 @@
 #include "initialize.cuh"
 #include "ColorUtils.cuh"
 #include "fitness.cuh"
+#include "tournament.cuh"
+
