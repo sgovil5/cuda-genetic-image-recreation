@@ -51,9 +51,9 @@ __global__ void generate_image_kernel(InitialImage* population, Color avg_color,
     InitialImage img;
 
     float background_prob = device_uniform_dis(&local_state);
-    if (background_prob < 0.4f) img.background = avg_color;
-    else if (background_prob < 0.6f) img.background = {0, 0, 0, 255};
-    else if (background_prob < 0.8f) img.background = {255, 255, 255, 255};
+    if (background_prob < 0.5f) img.background = avg_color;
+    else if (background_prob < 0.7f) img.background = {0, 0, 0, 255};
+    else if (background_prob < 0.9f) img.background = {255, 255, 255, 255};
     else{
         img.background = {
             device_uniform_dis(&local_state)*255,

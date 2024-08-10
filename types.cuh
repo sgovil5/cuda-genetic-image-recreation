@@ -1,15 +1,16 @@
 #ifndef TYPES_CUH
 #define TYPES_CUH
 
-#define POPULATION_SIZE 10
-#define WIDTH 100
-#define HEIGHT 100
+#define POPULATION_SIZE 100
+#define WIDTH 300
+#define HEIGHT 300
 
-#define TOURNAMENT_SIZE 4
-#define MUTATION_RATE 1
+#define TOURNAMENT_SIZE 5
+#define MUTATION_RATE 0.3
+#define EPOCHS 1000
 
 #define MAX_POINTS 8
-#define MAX_POLYGONS 8
+#define MAX_POLYGONS 20
 
 struct Image {
     unsigned char* data;

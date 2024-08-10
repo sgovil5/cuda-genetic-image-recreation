@@ -45,11 +45,16 @@ int main(){
 
     introduce_mutation(new_population);
 
-    for(int i = 0; i < min(POPULATION_SIZE, 10); i++) {
-        stbi_write_png(("new_output_image_" + std::to_string(i) + ".png").c_str(), 
-                       WIDTH, HEIGHT, channels, new_population[i].data, WIDTH * channels);
+    for(int i=0; i<EPOCHS; i++){
+        fitness_scores = calculate_fitness(new_population, original_image);
+        new_population = tournament_selection(new_population, fitness_scores);
+        introduce_mutation(new_population);
+        if(i%100==0){
+            int max_fitness_index = thrust::max_element(fitness_scores.begin(), fitness_scores.end()) - fitness_scores.begin();
+            std::cout<<"Epoch: "<<i<<" Fitness: "<<fitness_scores[max_fitness_index]<<std::endl;
+            stbi_write_png(("output_image_" + std::to_string(i) + ".png").c_str(), WIDTH, HEIGHT, channels, new_population[max_fitness_index].data, WIDTH * channels);
+        }
     }
-
 
     // Stop timing
     cudaEventRecord(stop);

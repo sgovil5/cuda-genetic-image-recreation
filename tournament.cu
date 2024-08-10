@@ -20,15 +20,17 @@ __global__ void combined_crossover_kernel(Image* population, int* selected_indic
 
     // Blend colors
     if (random_value < 0.5f) {
+        // Blend colors by some random constant alpha
+        float alpha = curand_uniform(&local_state);
         Image* parent1 = &population[parent1_idx];
         Image* parent2 = &population[parent2_idx];
         
-        new_population[image_idx].data[pixel_idx] = (parent1->data[pixel_idx] + parent2->data[pixel_idx]) / 2;
-        new_population[image_idx].data[pixel_idx + 1] = (parent1->data[pixel_idx + 1] + parent2->data[pixel_idx + 1]) / 2;
-        new_population[image_idx].data[pixel_idx + 2] = (parent1->data[pixel_idx + 2] + parent2->data[pixel_idx + 2]) / 2;
+        new_population[image_idx].data[pixel_idx] = alpha * parent1->data[pixel_idx] + (1 - alpha) * parent2->data[pixel_idx];
+        new_population[image_idx].data[pixel_idx + 1] = alpha * parent1->data[pixel_idx + 1] + (1 - alpha) * parent2->data[pixel_idx + 1];
+        new_population[image_idx].data[pixel_idx + 2] = alpha * parent1->data[pixel_idx + 2] + (1 - alpha) * parent2->data[pixel_idx + 2];
     }
     // Vertical/horizontal crossover
-    else {
+    else if (random_value < 0.8f) {
         bool do_vertical = random_value < 0.75f;
         int split_point = do_vertical ? WIDTH / 2 : HEIGHT / 2;
 
@@ -43,6 +45,20 @@ __global__ void combined_crossover_kernel(Image* population, int* selected_indic
         new_population[image_idx].data[pixel_idx + 1] = src_image->data[pixel_idx + 1];
         new_population[image_idx].data[pixel_idx + 2] = src_image->data[pixel_idx + 2];
     }
+    // Pixel-wise crossover
+    else {
+        float parent_choice = curand_uniform(&local_state);
+        if(parent_choice < 0.5f){
+            new_population[image_idx].data[pixel_idx] = population[parent1_idx].data[pixel_idx];
+            new_population[image_idx].data[pixel_idx + 1] = population[parent1_idx].data[pixel_idx + 1];
+            new_population[image_idx].data[pixel_idx + 2] = population[parent1_idx].data[pixel_idx + 2];
+        }
+        else{
+            new_population[image_idx].data[pixel_idx] = population[parent2_idx].data[pixel_idx];
+            new_population[image_idx].data[pixel_idx + 1] = population[parent2_idx].data[pixel_idx + 1];
+            new_population[image_idx].data[pixel_idx + 2] = population[parent2_idx].data[pixel_idx + 2];
+        }
+    }
 }
 
 __global__ void tournament_selection_kernel(Image* population, float* fitness_scores, int* selected_indices, curandState* states){
@@ -51,12 +67,12 @@ __global__ void tournament_selection_kernel(Image* population, float* fitness_sc
 
     curandState local_state = states[idx];
     int best_idx = -1;
-    float best_fitness = -INFINITY;
+    float best_fitness = INFINITY;
 
     for(int i=0; i<TOURNAMENT_SIZE; i++){
         int candidate = curand(&local_state) % POPULATION_SIZE;
 
-        if(fitness_scores[candidate] > best_fitness){
+        if(fitness_scores[candidate] < best_fitness){
             best_fitness = fitness_scores[candidate];
             best_idx = candidate;
         }
